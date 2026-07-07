@@ -72,6 +72,27 @@ h1 span{color:var(--steel);font-size:12px;letter-spacing:4px;display:block;text-
 .chip.on{border-color:var(--gold);color:var(--led);text-shadow:0 0 6px rgba(255,217,104,.6);
   box-shadow:0 0 10px rgba(212,175,55,.25),inset 0 0 8px rgba(212,175,55,.12)}
 
+/* settings dropdown */
+.set-wrap{position:relative}
+#setPanel{position:absolute;top:calc(100% + 8px);right:0;z-index:60;width:252px;max-width:calc(100vw - 24px);
+  background:var(--slate);border:1px solid var(--gold-dim);border-radius:12px;padding:8px;
+  box-shadow:var(--shadow),0 0 24px rgba(212,175,55,.1);display:none}
+#setPanel.open{display:block}
+.set-sec{padding:6px 4px}
+.set-sec+.set-sec{border-top:1px solid #2e3d56}
+.set-h{font-size:11px;letter-spacing:1.6px;color:var(--gold);padding:2px 6px 6px;font-variant:small-caps}
+.set-item{display:block;width:100%;text-align:left;padding:8px 10px;border-radius:8px;
+  font-size:12.5px;color:var(--ivory);letter-spacing:.3px}
+.set-item:hover{background:var(--slate2);color:var(--gold)}
+.set-item.danger{color:var(--red)}
+.set-item.danger:hover{background:#2e1a1a;color:#ff9d9d}
+.set-toggle{display:flex;align-items:center;gap:8px;padding:7px 10px;font-size:12.5px;
+  color:var(--steel);cursor:pointer;border-radius:8px}
+.set-toggle:hover{background:var(--slate2)}
+.set-toggle input{width:auto}
+#setPanel select{width:100%;margin-top:6px}
+#syncDot{flex:0 0 auto}
+
 /* ── Board ── */
 #board{display:flex;gap:14px;padding:18px 20px 60px;overflow-x:auto;align-items:flex-start}
 .col{background:linear-gradient(180deg,#1E2A3A,#182335);border:1px solid #2e3d56;border-radius:14px;
@@ -99,6 +120,9 @@ h1 span{color:var(--steel);font-size:12px;letter-spacing:4px;display:block;text-
 .card.dragging{opacity:.4}
 .card-top{display:flex;align-items:flex-start;gap:6px}
 .c-name{font-size:15px;flex:1;line-height:1.3;letter-spacing:.4px}
+.c-charge{margin-top:3px;font-size:12.5px;color:var(--gold);letter-spacing:.4px;font-style:italic}
+.c-charge.empty{color:#5f6d84;cursor:pointer;font-style:normal;font-size:11.5px}
+.c-charge.empty:hover{color:var(--gold)}
 .c-menu{color:#5f6d84;font-size:16px;padding:0 4px;line-height:1}
 .c-menu:hover{color:var(--gold)}
 .tags{display:flex;gap:5px;margin-top:6px;flex-wrap:wrap}
@@ -200,16 +224,34 @@ h1 span{color:var(--steel);font-size:12px;letter-spacing:4px;display:block;text-
       <div class="stats" id="stats"></div>
     </div>
     <div class="h-controls">
-      <input type="search" id="q" placeholder="Search name, charge, county…">
-      <select id="fCounty"><option value="">All counties</option></select>
-      <button class="chip" id="fEvd">Missing evidence</button>
-      <button class="chip" id="fOfr">No offer</button>
-      <button class="btn btn-gold" id="pdfBtn">⬆ Import PDF</button>
-      <button class="btn btn-steel" id="addBtn">+ Client</button>
-      <button class="btn btn-dark" id="expBtn">Export</button>
-      <button class="btn btn-dark" id="impBtn">Restore</button>
-      <button class="btn btn-dark" id="clrBtn" style="color:var(--red);border-color:#5c3333">Clear All</button>
-      <button class="btn btn-dark" id="syncBtn"><span class="sync-dot" id="syncDot"></span>Sync</button>
+      <input type="search" id="q" placeholder="Search name or charge…">
+      <span class="sync-dot" id="syncDot" title="Cloud sync status"></span>
+      <div class="set-wrap">
+        <button class="btn btn-dark" id="setBtn">⚙ Settings ▾</button>
+        <div id="setPanel">
+          <div class="set-sec">
+            <div class="set-h">Import</div>
+            <button class="set-item" id="pdfBtn">⬆&nbsp; Import names from PDF</button>
+          </div>
+          <div class="set-sec">
+            <div class="set-h">Spotlight</div>
+            <label class="set-toggle"><input type="checkbox" id="fEvd"> Missing evidence</label>
+            <label class="set-toggle"><input type="checkbox" id="fOfr"> No offer yet</label>
+            <select id="fCounty"><option value="">All counties</option></select>
+          </div>
+          <div class="set-sec">
+            <div class="set-h">Backup</div>
+            <button class="set-item" id="expBtn">⬇&nbsp; Export backup file</button>
+            <button class="set-item" id="impBtn">↺&nbsp; Restore from backup</button>
+            <button class="set-item danger" id="clrBtn">✕&nbsp; Clear all clients</button>
+          </div>
+          <div class="set-sec">
+            <div class="set-h">Cloud Sync</div>
+            <button class="set-item" id="syncBtn">☁&nbsp; Sync settings…</button>
+          </div>
+        </div>
+      </div>
+      <button class="btn btn-gold" id="addBtn">+ Client</button>
       <input type="file" id="impFile" accept=".json" style="display:none">
       <input type="file" id="pdfFile" accept=".pdf" style="display:none">
     </div>
@@ -396,6 +438,12 @@ function dimmed(c){
 
 function render(){
   const board=document.getElementById("board");
+  const sy=window.scrollY, sx=window.scrollX, bl=board.scrollLeft;
+  const colScroll={};
+  document.querySelectorAll(".col").forEach(c=>{
+    const b=c.querySelector(".col-body");
+    if(b) colScroll[c.dataset.bucket]=b.scrollTop;
+  });
   board.innerHTML="";
   const byBucket={};
   BUCKETS.forEach(b=>byBucket[b.id]=[]);
@@ -417,6 +465,12 @@ function render(){
     items.forEach(c=>body.appendChild(cardEl(c)));
     board.appendChild(col);
   });
+  document.querySelectorAll(".col").forEach(c=>{
+    const b=c.querySelector(".col-body");
+    if(b && colScroll[c.dataset.bucket]!=null) b.scrollTop=colScroll[c.dataset.bucket];
+  });
+  board.scrollLeft=bl;
+  window.scrollTo(sx,sy);
   renderStats();
   save();
 }
@@ -432,8 +486,10 @@ function cardEl(c){
       <div class="c-name">${esc(c.name)}</div>
       <button class="c-menu" data-menu="${c.id}">⋮</button>
     </div>
+    ${c.charge
+      ? `<div class="c-charge">${esc(c.charge)}</div>`
+      : `<div class="c-charge empty" data-add="${c.id}">＋ add charge</div>`}
     <div class="tags">
-      ${c.charge?`<span class="tag charge">${esc(c.charge)}</span>`:""}
       ${c.county?`<span class="tag county">${esc(c.county)}</span>`:""}
       ${c.date?`<span class="tag date${isSoon(c.date)?" soon":""}">⚖ ${fmtDate(c.date)}</span>`:""}
     </div>
@@ -671,6 +727,8 @@ document.getElementById("impConfirm").onclick=()=>{
 
 /* ── board events ── */
 document.getElementById("board").addEventListener("click",e=>{
+  const add=e.target.closest("[data-add]");
+  if(add){openModal(add.dataset.add); return;}
   const or=e.target.closest("[data-or]");
   if(or){const c=get(or.dataset.id);
     c.offerResult=c.offerResult===or.dataset.or?null:or.dataset.or; render(); return;}
@@ -778,8 +836,16 @@ document.getElementById("mDel").onclick=()=>{
 /* filters */
 document.getElementById("q").oninput=e=>{filters.q=e.target.value; render();};
 document.getElementById("fCounty").onchange=e=>{filters.county=e.target.value; render();};
-document.getElementById("fEvd").onclick=e=>{filters.noEvd=!filters.noEvd; e.target.classList.toggle("on"); render();};
-document.getElementById("fOfr").onclick=e=>{filters.noOfr=!filters.noOfr; e.target.classList.toggle("on"); render();};
+document.getElementById("fEvd").onchange=e=>{filters.noEvd=e.target.checked; render();};
+document.getElementById("fOfr").onchange=e=>{filters.noOfr=e.target.checked; render();};
+
+/* settings dropdown */
+const setPanel=document.getElementById("setPanel");
+document.getElementById("setBtn").onclick=e=>{e.stopPropagation(); setPanel.classList.toggle("open");};
+setPanel.addEventListener("click",e=>{if(e.target.closest(".set-item")) setPanel.classList.remove("open");});
+document.addEventListener("click",e=>{
+  if(!e.target.closest(".set-wrap")) setPanel.classList.remove("open");
+});
 
 /* backup */
 document.getElementById("expBtn").onclick=()=>{
