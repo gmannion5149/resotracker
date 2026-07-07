@@ -123,6 +123,10 @@ h1 span{color:var(--steel);font-size:12px;letter-spacing:4px;display:block;text-
 .sub.dec.on{border-color:var(--red);color:#ff9d9d;text-shadow:0 0 6px rgba(225,90,90,.7);
   box-shadow:0 0 9px rgba(225,90,90,.3),inset 0 0 8px rgba(225,90,90,.14)}
 .sub-label{font-size:10px;color:#6d7c94;letter-spacing:1px;padding:0 2px;font-style:italic}
+.sync-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:7px;background:#4a5870;vertical-align:1px}
+.sync-dot.ok{background:var(--green);box-shadow:0 0 7px var(--green),0 0 14px rgba(76,175,125,.5)}
+.sync-dot.busy{background:var(--led);box-shadow:0 0 7px var(--led);animation:ledPulse 1s ease-in-out infinite}
+.sync-dot.err{background:var(--red);box-shadow:0 0 7px var(--red)}
 .ck{flex:1;border:1px solid #33425c;border-radius:7px;padding:5px 0;text-align:center;font-size:10px;
   color:#6d7c94;letter-spacing:1px;transition:.15s;user-select:none;
   background:linear-gradient(180deg,#1a2436,#131b2a)}
@@ -205,6 +209,7 @@ h1 span{color:var(--steel);font-size:12px;letter-spacing:4px;display:block;text-
       <button class="btn btn-dark" id="expBtn">Export</button>
       <button class="btn btn-dark" id="impBtn">Restore</button>
       <button class="btn btn-dark" id="clrBtn" style="color:var(--red);border-color:#5c3333">Clear All</button>
+      <button class="btn btn-dark" id="syncBtn"><span class="sync-dot" id="syncDot"></span>Sync</button>
       <input type="file" id="impFile" accept=".json" style="display:none">
       <input type="file" id="pdfFile" accept=".pdf" style="display:none">
     </div>
@@ -265,6 +270,24 @@ h1 span{color:var(--steel);font-size:12px;letter-spacing:4px;display:block;text-
   </div>
 </div>
 
+<!-- sync settings -->
+<div class="overlay" id="syncOv">
+  <div class="modal">
+    <h3>Cloud Sync</h3>
+    <label>Worker URL</label><input id="sUrl" placeholder="https://resolution-sync.YOURNAME.workers.dev">
+    <label>Sync passphrase</label><input id="sKey" type="password" placeholder="Same passphrase on every computer">
+    <div style="font-size:11.5px;color:var(--steel);margin-top:12px;font-style:italic" id="sInfo">
+      Enter the same URL and passphrase on each computer. The board auto-saves to the cloud a moment after every change and pulls the latest copy when you open the page.
+    </div>
+    <div class="m-actions">
+      <button class="btn-red" id="sOff">Disconnect</button>
+      <button class="btn btn-dark" id="sPull">Pull Now</button>
+      <button class="btn btn-dark" id="sPush">Push Now</button>
+      <button class="btn btn-gold" id="sSave">Save &amp; Connect</button>
+    </div>
+  </div>
+</div>
+
 <div id="pop"></div>
 <div id="toast"></div>
 
@@ -291,7 +314,49 @@ function load(){
   try{const s=JSON.parse(localStorage.getItem(KEY)); if(s&&s.clients) return s;}catch(e){}
   return {clients:[]};
 }
-function save(){localStorage.setItem(KEY,JSON.stringify(state));}
+function save(){localStorage.setItem(KEY,JSON.stringify(state)); cloudSaveSoon();}
+
+/* ── cloud sync (Cloudflare Worker + secret Gist) ── */
+const SYNC_CFG_KEY="resolutionSyncCfgV1";
+let syncCfg=(function(){try{return JSON.parse(localStorage.getItem(SYNC_CFG_KEY))||null;}catch(e){return null;}})();
+let syncTimer=null, lastPushedSig="";
+function setDot(s){const d=document.getElementById("syncDot"); if(d) d.className="sync-dot"+(s?" "+s:"");}
+function cloudSaveSoon(){
+  if(!syncCfg||!syncCfg.url) return;
+  clearTimeout(syncTimer); syncTimer=setTimeout(cloudSave,1500);
+}
+async function cloudSave(manual){
+  if(!syncCfg||!syncCfg.url) return;
+  const sig=JSON.stringify(state.clients);
+  if(!manual&&sig===lastPushedSig){setDot("ok"); return;}
+  setDot("busy");
+  try{
+    state.updatedAt=Date.now();
+    const r=await fetch(syncCfg.url,{method:"PUT",
+      headers:{"Content-Type":"application/json","X-Sync-Key":syncCfg.key},
+      body:JSON.stringify(state)});
+    if(!r.ok) throw new Error("HTTP "+r.status);
+    lastPushedSig=sig; setDot("ok");
+    if(manual) toast("Pushed to cloud");
+  }catch(e){setDot("err"); if(manual) toast("Cloud push failed — check URL and passphrase");}
+}
+async function cloudLoad(manual){
+  if(!syncCfg||!syncCfg.url) return;
+  setDot("busy");
+  try{
+    const r=await fetch(syncCfg.url,{headers:{"X-Sync-Key":syncCfg.key}});
+    if(!r.ok) throw new Error("HTTP "+r.status);
+    const remote=await r.json();
+    if(remote&&remote.clients&&(manual||(remote.updatedAt||0)>(state.updatedAt||0))){
+      state=remote;
+      localStorage.setItem(KEY,JSON.stringify(state));
+      lastPushedSig=JSON.stringify(state.clients);
+      render();
+      if(manual) toast("Pulled latest from cloud");
+    }else if(manual) toast("Local copy is already current");
+    setDot("ok");
+  }catch(e){setDot("err"); if(manual) toast("Cloud pull failed — check URL and passphrase");}
+}
 
 function statusOf(c){
   if(c.trialSet){
@@ -740,7 +805,31 @@ document.getElementById("clrBtn").onclick=()=>{
   }
 };
 
+/* sync UI */
+document.getElementById("syncBtn").onclick=()=>{
+  document.getElementById("sUrl").value=syncCfg?syncCfg.url:"";
+  document.getElementById("sKey").value=syncCfg?syncCfg.key:"";
+  document.getElementById("syncOv").classList.add("open");
+};
+document.getElementById("sSave").onclick=()=>{
+  const url=document.getElementById("sUrl").value.trim().replace(/\/$/,"");
+  const key=document.getElementById("sKey").value;
+  if(!url||!key){toast("URL and passphrase both required"); return;}
+  syncCfg={url,key};
+  localStorage.setItem(SYNC_CFG_KEY,JSON.stringify(syncCfg));
+  document.getElementById("syncOv").classList.remove("open");
+  cloudLoad(true);
+};
+document.getElementById("sPull").onclick=()=>{if(!syncCfg){toast("Connect first"); return;} cloudLoad(true);};
+document.getElementById("sPush").onclick=()=>{if(!syncCfg){toast("Connect first"); return;} cloudSave(true);};
+document.getElementById("sOff").onclick=()=>{
+  syncCfg=null; localStorage.removeItem(SYNC_CFG_KEY);
+  setDot(""); document.getElementById("syncOv").classList.remove("open");
+  toast("Sync disconnected on this computer");
+};
+
 render();
+if(syncCfg) cloudLoad(false);
 </script>
 </body>
 </html>
