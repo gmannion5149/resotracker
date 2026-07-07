@@ -1,0 +1,746 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Resolution Tracker — Gerald Miller P.A.</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<style>
+:root{
+  --navy:#0D1424; --slate:#1E2A3A; --slate2:#26344A; --gold:#D4AF37; --gold-dim:#8a7326;
+  --steel:#C8CDD6; --ivory:#F2F4F7; --red:#E15A5A; --amber:#E8A33D; --green:#4CAF7D; --blue:#5A9BE1; --violet:#a98ce8;
+  --led:#ffd968;
+  --shadow:0 6px 18px rgba(0,0,0,.45);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--navy);color:var(--ivory);font-family:Georgia,'Times New Roman',serif;font-weight:400;
+  font-size:14px;min-height:100vh;letter-spacing:.2px;
+  background-image:radial-gradient(ellipse at top,#16233b 0%,#0D1424 55%);}
+button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
+input,select,textarea{font-family:inherit;font-size:13px;background:var(--navy);color:var(--ivory);
+  border:1px solid #3a4a63;border-radius:8px;padding:7px 10px;outline:none}
+input:focus,select:focus,textarea:focus{border-color:var(--gold);box-shadow:0 0 8px rgba(212,175,55,.25)}
+::placeholder{color:#5f6d84}
+
+/* ── metallic buttons + LED underglow ── */
+.btn{position:relative;border-radius:8px;padding:8px 16px;font-size:12.5px;letter-spacing:1px;
+  transition:transform .1s}
+.btn:active{transform:translateY(1px)}
+.btn::after{content:"";position:absolute;left:12%;right:12%;bottom:-7px;height:7px;border-radius:50%;
+  background:radial-gradient(ellipse,var(--led-color,rgba(212,175,55,.95)),transparent 72%);
+  opacity:0;filter:blur(3px);transition:opacity .25s;pointer-events:none}
+.btn:hover::after{opacity:1}
+.btn-gold{--led-color:rgba(255,217,104,.95);color:#141005;font-weight:700;
+  background:linear-gradient(180deg,#f2dc84 0%,#d4af37 38%,#8a6d1f 72%,#c9a53a 100%);
+  border:1px solid #6b571b;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.65),inset 0 -2px 4px rgba(0,0,0,.35),0 2px 6px rgba(0,0,0,.5)}
+.btn-gold:hover{background:linear-gradient(180deg,#f8e69a 0%,#e0bb42 38%,#96771f 72%,#d4b045 100%)}
+.btn-steel{--led-color:rgba(200,205,214,.85);color:#101724;font-weight:700;
+  background:linear-gradient(180deg,#e8ecf2 0%,#c8cdd6 40%,#7d8595 75%,#b9bfc9 100%);
+  border:1px solid #565f6e;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.7),inset 0 -2px 4px rgba(0,0,0,.3),0 2px 6px rgba(0,0,0,.5)}
+.btn-dark{--led-color:rgba(212,175,55,.8);color:var(--steel);
+  background:linear-gradient(180deg,#2c3a52 0%,#1E2A3A 50%,#141d2c 100%);
+  border:1px solid #43536f;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 2px 5px rgba(0,0,0,.45)}
+.btn-dark:hover{color:var(--gold);border-color:var(--gold-dim)}
+
+/* LED strip under the header */
+.led-strip{height:2px;background:linear-gradient(90deg,transparent,var(--gold) 18%,var(--led) 50%,var(--gold) 82%,transparent);
+  box-shadow:0 0 10px rgba(255,217,104,.55),0 0 22px rgba(212,175,55,.3);
+  animation:ledPulse 4s ease-in-out infinite}
+@keyframes ledPulse{0%,100%{opacity:.75}50%{opacity:1}}
+@media (prefers-reduced-motion:reduce){.led-strip,.status .dot{animation:none}}
+
+/* ── Header ── */
+header{position:sticky;top:0;z-index:50;background:linear-gradient(180deg,#0D1424 72%,rgba(13,20,36,.94));
+  backdrop-filter:blur(6px)}
+.h-inner{padding:14px 20px 12px}
+.h-top{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+h1{font-size:21px;font-weight:400;letter-spacing:5px;color:var(--gold);text-shadow:0 0 12px rgba(212,175,55,.35);
+  font-variant:small-caps}
+h1 span{color:var(--steel);font-size:12px;letter-spacing:4px;display:block;text-shadow:none}
+.stats{display:flex;gap:10px;margin-left:auto;flex-wrap:wrap}
+.stat{background:linear-gradient(180deg,#243248,#1a2536);border:1px solid #34435d;border-radius:10px;
+  padding:6px 13px;text-align:center;min-width:80px;box-shadow:inset 0 1px 0 rgba(255,255,255,.06)}
+.stat b{display:block;font-size:17px;color:var(--led);font-weight:400;text-shadow:0 0 8px rgba(255,217,104,.6)}
+.stat small{color:var(--steel);font-size:9.5px;letter-spacing:1.2px;text-transform:uppercase}
+.h-controls{display:flex;gap:9px;margin-top:11px;flex-wrap:wrap;align-items:center}
+.h-controls input[type=search]{flex:1;min-width:180px}
+.chip{border:1px solid #3a4a63;border-radius:20px;padding:6px 14px;font-size:12px;color:var(--steel);
+  background:linear-gradient(180deg,#243248,#1a2536);transition:.15s}
+.chip.on{border-color:var(--gold);color:var(--led);text-shadow:0 0 6px rgba(255,217,104,.6);
+  box-shadow:0 0 10px rgba(212,175,55,.25),inset 0 0 8px rgba(212,175,55,.12)}
+
+/* ── Board ── */
+#board{display:flex;gap:14px;padding:18px 20px 60px;overflow-x:auto;align-items:flex-start}
+.col{background:linear-gradient(180deg,#1E2A3A,#182335);border:1px solid #2e3d56;border-radius:14px;
+  min-width:308px;width:308px;flex-shrink:0;box-shadow:var(--shadow)}
+.col.drag-over{outline:2px dashed var(--gold);outline-offset:-4px}
+.col-head{padding:12px 14px 9px;display:flex;align-items:center;gap:8px;cursor:pointer;position:relative}
+.col-head::after{content:"";position:absolute;left:12px;right:12px;bottom:0;height:1px;
+  background:linear-gradient(90deg,transparent,var(--gold-dim) 30%,var(--gold-dim) 70%,transparent);
+  box-shadow:0 0 6px rgba(212,175,55,.35)}
+.col-head h2{letter-spacing:2.2px;color:var(--gold);font-weight:400;flex:1;font-variant:small-caps;font-size:15px}
+.col-head .cnt{background:var(--navy);border:1px solid var(--gold-dim);color:var(--led);border-radius:16px;
+  padding:2px 10px;font-size:12px;text-shadow:0 0 6px rgba(255,217,104,.5)}
+.col-head .caret{color:var(--steel);font-size:11px;transition:.2s}
+.col.collapsed .caret{transform:rotate(-90deg)}
+.col-desc{font-size:11px;color:#6d7c94;padding:7px 14px 0;letter-spacing:.4px;font-style:italic}
+.col-body{padding:10px;display:flex;flex-direction:column;gap:9px;min-height:60px;max-height:calc(100vh - 250px);overflow-y:auto}
+.col.collapsed .col-body,.col.collapsed .col-desc{display:none}
+.col-body::-webkit-scrollbar{width:6px}
+.col-body::-webkit-scrollbar-thumb{background:#34435d;border-radius:3px}
+
+/* ── Cards ── */
+.card{background:var(--navy);border:1px solid #33425c;border-left:3px solid var(--card-accent,#33425c);
+  border-radius:11px;padding:10px 11px;cursor:grab;transition:border-color .15s}
+.card:hover{border-color:var(--gold-dim);box-shadow:0 0 12px rgba(212,175,55,.12)}
+.card.dragging{opacity:.4}
+.card-top{display:flex;align-items:flex-start;gap:6px}
+.c-name{font-size:15px;flex:1;line-height:1.3;letter-spacing:.4px}
+.c-menu{color:#5f6d84;font-size:16px;padding:0 4px;line-height:1}
+.c-menu:hover{color:var(--gold)}
+.tags{display:flex;gap:5px;margin-top:6px;flex-wrap:wrap}
+.tag{font-size:10.5px;padding:2px 8px;border-radius:12px;letter-spacing:.4px}
+.tag.charge{border:1px solid var(--gold-dim);color:var(--gold)}
+.tag.county{background:var(--slate2);color:var(--steel)}
+.tag.date{background:#1a2f45;color:var(--blue)}
+.tag.date.soon{background:#3a2020;color:#ff9d9d}
+.status{margin-top:8px;display:inline-flex;align-items:center;gap:7px;font-size:10.5px;
+  letter-spacing:1.2px;text-transform:uppercase;padding:4px 10px;border-radius:6px;
+  background:linear-gradient(180deg,#243248,#1a2536)}
+.status .dot{width:7px;height:7px;border-radius:50%;background:currentColor;
+  box-shadow:0 0 7px currentColor,0 0 14px currentColor;animation:ledPulse 3s ease-in-out infinite}
+.checks{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:9px}
+.card.dim{opacity:.28;filter:saturate(.4)}
+.subrow{display:flex;gap:6px;margin-top:6px;align-items:center}
+.sub{flex:1;border:1px solid #33425c;border-radius:7px;padding:4px 0;text-align:center;font-size:10px;
+  letter-spacing:1px;color:#6d7c94;cursor:pointer;user-select:none;transition:.15s;
+  background:linear-gradient(180deg,#1a2436,#131b2a)}
+.sub.acc.on{border-color:var(--green);color:#7fe0ac;text-shadow:0 0 6px rgba(76,175,125,.7);
+  box-shadow:0 0 9px rgba(76,175,125,.3),inset 0 0 8px rgba(76,175,125,.14)}
+.sub.dec.on{border-color:var(--red);color:#ff9d9d;text-shadow:0 0 6px rgba(225,90,90,.7);
+  box-shadow:0 0 9px rgba(225,90,90,.3),inset 0 0 8px rgba(225,90,90,.14)}
+.sub-label{font-size:10px;color:#6d7c94;letter-spacing:1px;padding:0 2px;font-style:italic}
+.ck{flex:1;border:1px solid #33425c;border-radius:7px;padding:5px 0;text-align:center;font-size:10px;
+  color:#6d7c94;letter-spacing:1px;transition:.15s;user-select:none;
+  background:linear-gradient(180deg,#1a2436,#131b2a)}
+.ck.on{border-color:var(--gold);color:var(--led);text-shadow:0 0 6px rgba(255,217,104,.6);
+  box-shadow:inset 0 0 10px rgba(212,175,55,.15),0 0 8px rgba(212,175,55,.2)}
+.ck.on::before{content:"✓ "}
+.note-view{margin-top:8px;font-size:11.5px;color:var(--steel);background:var(--slate);border-radius:7px;
+  padding:6px 8px;white-space:pre-wrap;display:none;font-style:italic}
+.card.show-note .note-view{display:block}
+.empty{color:#4a5870;font-size:12px;text-align:center;padding:16px 8px;font-style:italic}
+
+/* ── Modals ── */
+.overlay{position:fixed;inset:0;background:rgba(5,9,18,.78);z-index:100;display:none;align-items:center;justify-content:center}
+.overlay.open{display:flex}
+.modal{background:var(--slate);border:1px solid var(--gold-dim);border-radius:14px;padding:20px;width:min(440px,92vw);
+  box-shadow:0 12px 40px rgba(0,0,0,.6),0 0 30px rgba(212,175,55,.08);max-height:90vh;overflow-y:auto}
+.modal.wide{width:min(640px,94vw)}
+.modal h3{color:var(--gold);letter-spacing:3px;font-size:16px;margin-bottom:14px;font-weight:400;font-variant:small-caps}
+.modal label{display:block;font-size:10.5px;color:var(--steel);letter-spacing:1px;text-transform:uppercase;margin:10px 0 4px}
+.modal input,.modal select,.modal textarea{width:100%}
+.modal .row{display:flex;gap:10px}.modal .row>div{flex:1}
+.m-actions{display:flex;gap:8px;margin-top:18px;justify-content:flex-end}
+.btn-red{color:var(--red);border:1px solid #5c3333;border-radius:8px;padding:7px 12px;font-size:12px;margin-right:auto}
+
+/* import modal */
+.imp-tabs{display:flex;gap:8px;margin-bottom:14px}
+.imp-tab{flex:1;text-align:center;padding:8px;border:1px solid #3a4a63;border-radius:8px;font-size:12px;
+  letter-spacing:1px;color:var(--steel);background:linear-gradient(180deg,#243248,#1a2536)}
+.imp-tab.on{border-color:var(--gold);color:var(--led);box-shadow:0 0 10px rgba(212,175,55,.2)}
+.drop{border:2px dashed #3a4a63;border-radius:12px;padding:26px 14px;text-align:center;color:#6d7c94;
+  font-size:13px;transition:.2s;cursor:pointer}
+.drop.hover,.drop:hover{border-color:var(--gold);color:var(--gold);box-shadow:inset 0 0 20px rgba(212,175,55,.08)}
+#impProgress{display:none;margin-top:12px}
+.pbar{height:6px;background:var(--navy);border-radius:3px;overflow:hidden;border:1px solid #33425c}
+.pbar div{height:100%;width:0%;background:linear-gradient(90deg,var(--gold),var(--led));
+  box-shadow:0 0 8px rgba(255,217,104,.6);transition:width .3s}
+#impStatus{font-size:11.5px;color:var(--steel);margin-top:6px;font-style:italic}
+#preview{margin-top:14px;display:none}
+#preview table{width:100%;border-collapse:collapse;font-size:12px}
+#preview th{text-align:left;color:var(--gold);font-weight:400;letter-spacing:1px;font-size:10px;
+  text-transform:uppercase;padding:4px 6px;border-bottom:1px solid var(--gold-dim)}
+#preview td{padding:3px 4px;border-bottom:1px solid #26344a}
+#preview input[type=text]{width:100%;padding:4px 6px;font-size:12px;border-radius:5px}
+#preview .pv-wrap{max-height:300px;overflow-y:auto;border:1px solid #33425c;border-radius:8px}
+
+#pop{position:fixed;z-index:120;background:var(--slate);border:1px solid #3a4a63;border-radius:10px;
+  box-shadow:var(--shadow);display:none;min-width:200px;overflow:hidden}
+#pop button{display:block;width:100%;text-align:left;padding:9px 14px;font-size:12.5px;color:var(--ivory)}
+#pop button:hover{background:var(--slate2);color:var(--gold)}
+#pop .sep{border-top:1px solid #33425c}
+#pop .head{padding:7px 14px;font-size:10px;color:#6d7c94;letter-spacing:1.5px;text-transform:uppercase}
+
+#toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:var(--slate);color:var(--led);
+  border:1px solid var(--gold-dim);padding:10px 20px;border-radius:10px;font-size:13px;z-index:200;display:none;
+  box-shadow:var(--shadow),0 0 16px rgba(212,175,55,.2);letter-spacing:.5px}
+
+@media (max-width:640px){
+  .col{min-width:282px;width:282px}
+  h1{font-size:17px;letter-spacing:3px}
+  .stat{min-width:64px;padding:4px 8px}
+  .stat b{font-size:14px}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="h-inner">
+    <div class="h-top">
+      <h1>Resolution Tracker<span>Gerald Miller P.A. — GWM</span></h1>
+      <div class="stats" id="stats"></div>
+    </div>
+    <div class="h-controls">
+      <input type="search" id="q" placeholder="Search name, charge, county…">
+      <select id="fCounty"><option value="">All counties</option></select>
+      <button class="chip" id="fEvd">Missing evidence</button>
+      <button class="chip" id="fOfr">No offer</button>
+      <button class="btn btn-gold" id="pdfBtn">⬆ Import PDF</button>
+      <button class="btn btn-steel" id="addBtn">+ Client</button>
+      <button class="btn btn-dark" id="expBtn">Export</button>
+      <button class="btn btn-dark" id="impBtn">Restore</button>
+      <button class="btn btn-dark" id="clrBtn" style="color:var(--red);border-color:#5c3333">Clear All</button>
+      <input type="file" id="impFile" accept=".json" style="display:none">
+      <input type="file" id="pdfFile" accept=".pdf" style="display:none">
+    </div>
+  </div>
+  <div class="led-strip"></div>
+</header>
+
+<div id="board"></div>
+
+<!-- edit/add client -->
+<div class="overlay" id="ov">
+  <div class="modal">
+    <h3 id="mTitle">Edit Client</h3>
+    <label>Name</label><input id="mName">
+    <div class="row">
+      <div><label>Charge</label><input id="mCharge"></div>
+      <div><label>County</label><input id="mCounty"></div>
+    </div>
+    <div class="row">
+      <div><label>Next court date</label><input id="mDate" type="date"></div>
+      <div><label>Section</label><select id="mBucket"></select></div>
+    </div>
+    <label>Notes</label><textarea id="mNotes" rows="3"></textarea>
+    <div class="m-actions">
+      <button class="btn-red" id="mDel">Delete</button>
+      <button class="btn btn-dark" id="mCancel">Cancel</button>
+      <button class="btn btn-gold" id="mSave">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- PDF / paste import -->
+<div class="overlay" id="impOv">
+  <div class="modal wide">
+    <h3>Import Client List</h3>
+    <div class="imp-tabs">
+      <button class="imp-tab on" data-tab="pdf">PDF Upload</button>
+      <button class="imp-tab" data-tab="paste">Paste Text</button>
+    </div>
+    <div id="tabPdf">
+      <div class="drop" id="drop">Drop your client list PDF here<br>or tap to choose a file</div>
+    </div>
+    <div id="tabPaste" style="display:none">
+      <label>Paste names — one client per line (Last, First or First Last)</label>
+      <textarea id="pasteBox" rows="7" placeholder="Smith, John&#10;Jane Doe"></textarea>
+      <div style="text-align:right;margin-top:8px"><button class="btn btn-steel" id="parsePaste">Parse</button></div>
+    </div>
+    <div id="impProgress"><div class="pbar"><div id="pfill"></div></div><div id="impStatus"></div></div>
+    <div id="preview">
+      <label id="pvCount"></label>
+      <div class="pv-wrap"><table><thead><tr><th style="width:26px"></th><th>Client Name</th></tr></thead>
+      <tbody id="pvBody"></tbody></table></div>
+    </div>
+    <div class="m-actions">
+      <button class="btn btn-dark" id="impCancel">Cancel</button>
+      <button class="btn btn-gold" id="impConfirm" style="display:none">Add to Needs Categorization</button>
+    </div>
+  </div>
+</div>
+
+<div id="pop"></div>
+<div id="toast"></div>
+
+<script>
+"use strict";
+if(window.pdfjsLib){
+  pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+}
+const BUCKETS=[
+ {id:"cat", name:"Needs Categorization", desc:"New imports land here — sort them out"},
+ {id:"soon", name:"Resolving Soon", desc:"Offer in hand or terms agreed; closing imminently"},
+ {id:"likely", name:"Likely to Resolve", desc:"On track; negotiation active"},
+ {id:"work", name:"Needs Work", desc:"Gaps to close before resolution is realistic"},
+ {id:"unlikely", name:"Not Likely", desc:"No viable path yet; stalled or contested"},
+ {id:"trial", name:"Trial Track", desc:"Set for trial or headed there"}
+];
+const MN_COUNTIES=["Aitkin","Anoka","Becker","Beltrami","Benton","Big Stone","Blue Earth","Brown","Carlton","Carver","Cass","Chippewa","Chisago","Clay","Clearwater","Cook","Cottonwood","Crow Wing","Dakota","Dodge","Douglas","Faribault","Fillmore","Freeborn","Goodhue","Grant","Hennepin","Houston","Hubbard","Isanti","Itasca","Jackson","Kanabec","Kandiyohi","Kittson","Koochiching","Lac qui Parle","Lake of the Woods","Lake","Le Sueur","Lincoln","Lyon","Mahnomen","Marshall","Martin","McLeod","Meeker","Mille Lacs","Morrison","Mower","Murray","Nicollet","Nobles","Norman","Olmsted","Otter Tail","Pennington","Pine","Pipestone","Polk","Pope","Ramsey","Red Lake","Redwood","Renville","Rice","Rock","Roseau","Scott","Sherburne","Sibley","St. Louis","Stearns","Steele","Stevens","Swift","Todd","Traverse","Wabasha","Wadena","Waseca","Washington","Watonwan","Wilkin","Winona","Wright","Yellow Medicine"];
+const KEY="resolutionTrackerV2";
+let state=load();
+let filters={q:"",county:"",noEvd:false,noOfr:false};
+let editId=null, dragId=null, parsed=[];
+
+function load(){
+  try{const s=JSON.parse(localStorage.getItem(KEY)); if(s&&s.clients) return s;}catch(e){}
+  return {clients:[]};
+}
+function save(){localStorage.setItem(KEY,JSON.stringify(state));}
+
+function statusOf(c){
+  if(c.trialSet){
+    if(c.tryCase==="yes") return {t:"Trying Case",col:"var(--red)"};
+    if(c.tryCase==="no") return {t:"Trial Set — Resolving",col:"var(--amber)"};
+    return {t:"Trial Set",col:"var(--red)"};
+  }
+  if(c.bucket==="trial") return {t:"Trial Prep",col:"var(--red)"};
+  const all4=c.evd&&c.ofr&&c.adv&&c.pet;
+  if(all4&&c.sent&&c.clsr) return {t:"Ready to Close",col:"var(--green)"};
+  if(all4&&c.sent) return {t:"Send Closing Letter",col:"var(--violet)"};
+  if(all4) return {t:"Awaiting Sentencing",col:"var(--amber)"};
+  if(c.pet) return {t:"Petition Drafted",col:"var(--violet)"};
+  if(c.ofr&&c.offerResult==="dec") return {t:"Offer Declined",col:"var(--red)"};
+  if(c.ofr&&c.offerResult==="acc") return {t:"Offer Accepted",col:"var(--green)"};
+  if(c.ofr) return {t:"Offer In",col:"var(--gold)"};
+  if(c.evd) return {t:"Awaiting Offer",col:"var(--amber)"};
+  return {t:"Awaiting Evidence",col:"var(--blue)"};
+}
+function fmtDate(d){
+  if(!d) return "";
+  return new Date(d+"T12:00:00").toLocaleDateString("en-US",{month:"short",day:"numeric"});
+}
+function isSoon(d){
+  if(!d) return false;
+  return (new Date(d+"T12:00:00")-new Date())/86400000<=14;
+}
+function visible(c){
+  if(filters.q){const q=filters.q.toLowerCase();
+    if(!(c.name+" "+c.charge+" "+c.county).toLowerCase().includes(q)) return false;}
+  if(filters.county && c.county!==filters.county) return false;
+  return true;
+}
+function dimmed(c){
+  return (filters.noEvd&&c.evd)||(filters.noOfr&&c.ofr);
+}
+
+function render(){
+  const board=document.getElementById("board");
+  board.innerHTML="";
+  const byBucket={};
+  BUCKETS.forEach(b=>byBucket[b.id]=[]);
+  state.clients.forEach(c=>{(byBucket[c.bucket]||byBucket.cat).push(c);});
+  Object.values(byBucket).forEach(arr=>arr.sort((a,b)=>{
+    if(a.date&&b.date) return a.date<b.date?-1:a.date>b.date?1:0;
+    if(a.date) return -1; if(b.date) return 1; return 0;
+  }));
+  BUCKETS.forEach(b=>{
+    const col=document.createElement("div");
+    col.className="col"; col.dataset.bucket=b.id;
+    if(state["collapsed_"+b.id]) col.classList.add("collapsed");
+    const items=byBucket[b.id].filter(visible);
+    col.innerHTML=`<div class="col-head" data-toggle="${b.id}">
+        <h2>${b.name}</h2><span class="cnt">${items.length}</span><span class="caret">▾</span>
+      </div><div class="col-desc">${b.desc}</div><div class="col-body"></div>`;
+    const body=col.querySelector(".col-body");
+    if(!items.length) body.innerHTML=`<div class="empty">No clients here</div>`;
+    items.forEach(c=>body.appendChild(cardEl(c)));
+    board.appendChild(col);
+  });
+  renderStats();
+  save();
+}
+
+function cardEl(c){
+  const s=statusOf(c);
+  const el=document.createElement("div");
+  el.className="card"+(c.showNote?" show-note":"")+(dimmed(c)?" dim":"");
+  el.draggable=true; el.dataset.id=c.id;
+  el.style.setProperty("--card-accent",s.col);
+  el.innerHTML=`
+    <div class="card-top">
+      <div class="c-name">${esc(c.name)}</div>
+      <button class="c-menu" data-menu="${c.id}">⋮</button>
+    </div>
+    <div class="tags">
+      ${c.charge?`<span class="tag charge">${esc(c.charge)}</span>`:""}
+      ${c.county?`<span class="tag county">${esc(c.county)}</span>`:""}
+      ${c.date?`<span class="tag date${isSoon(c.date)?" soon":""}">⚖ ${fmtDate(c.date)}</span>`:""}
+    </div>
+    <div class="status" style="color:${s.col}"><span class="dot"></span>${s.t}</div>
+    <div class="checks">
+      <div class="ck${c.evd?" on":""}" data-ck="evd" data-id="${c.id}">EVIDENCE</div>
+      <div class="ck${c.ofr?" on":""}" data-ck="ofr" data-id="${c.id}">OFFER</div>
+      <div class="ck${c.adv?" on":""}" data-ck="adv" data-id="${c.id}">ADVISED</div>
+      <div class="ck${c.pet?" on":""}" data-ck="pet" data-id="${c.id}">PETITION</div>
+    </div>
+    ${c.ofr?`<div class="subrow">
+      <div class="sub acc${c.offerResult==="acc"?" on":""}" data-or="acc" data-id="${c.id}">✓ ACCEPTED</div>
+      <div class="sub dec${c.offerResult==="dec"?" on":""}" data-or="dec" data-id="${c.id}">✗ DECLINED</div>
+    </div>`:""}
+    ${(c.evd&&c.ofr&&c.adv&&c.pet)?`<div class="checks" style="margin-top:6px">
+      <div class="ck${c.sent?" on":""}" data-ck="sent" data-id="${c.id}">SENTENCED</div>
+      <div class="ck${c.clsr?" on":""}" data-ck="clsr" data-id="${c.id}">CLOSING LTR</div>
+    </div>`:""}
+    <div class="checks" style="margin-top:6px;grid-template-columns:1fr">
+      <div class="ck${c.trialSet?" on":""}" data-ck="trialSet" data-id="${c.id}">TRIAL SET</div>
+    </div>
+    ${c.trialSet?`<div class="subrow">
+      <span class="sub-label">Trying it?</span>
+      <div class="sub acc${c.tryCase==="yes"?" on":""}" data-tc="yes" data-id="${c.id}">YES</div>
+      <div class="sub dec${c.tryCase==="no"?" on":""}" data-tc="no" data-id="${c.id}">NO</div>
+    </div>`:""}
+    ${c.notes?`<div class="note-view">${esc(c.notes)}</div>`:""}`;
+  return el;
+}
+
+function renderStats(){
+  const cs=state.clients;
+  const n=cs.length, evd=cs.filter(c=>c.evd).length, ofr=cs.filter(c=>c.ofr).length;
+  const pet=cs.filter(c=>c.pet).length;
+  const ready=cs.filter(c=>c.evd&&c.ofr&&c.adv&&c.pet&&c.sent&&c.clsr).length;
+  const trial=cs.filter(c=>c.bucket==="trial").length;
+  document.getElementById("stats").innerHTML=
+    `<div class="stat"><b>${n}</b><small>Clients</small></div>
+     <div class="stat"><b>${evd}</b><small>Evidence</small></div>
+     <div class="stat"><b>${ofr}</b><small>Offers</small></div>
+     <div class="stat"><b>${pet}</b><small>Petitions</small></div>
+     <div class="stat"><b>${ready}</b><small>Ready</small></div>
+     <div class="stat"><b>${trial}</b><small>Trial</small></div>`;
+  const sel=document.getElementById("fCounty");
+  const cur=sel.value;
+  const counties=[...new Set(cs.map(c=>c.county).filter(Boolean))].sort();
+  sel.innerHTML=`<option value="">All counties</option>`+counties.map(x=>`<option${x===cur?" selected":""}>${esc(x)}</option>`).join("");
+}
+
+function esc(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
+function get(id){return state.clients.find(c=>c.id===id);}
+function toast(msg){
+  const t=document.getElementById("toast");
+  t.textContent=msg; t.style.display="block";
+  clearTimeout(t._h); t._h=setTimeout(()=>t.style.display="none",2200);
+}
+
+/* ── PDF / text parsing ── */
+function simplifyCharge(raw){
+  let s=raw.replace(/\s+/g," ").trim();
+  const deg=(s.match(/(1st|2nd|3rd|4th|5th|First|Second|Third|Fourth|Fifth)\s*Degree/i)||[])[1]||"";
+  const d=deg?deg.replace(/First/i,"1st").replace(/Second/i,"2nd").replace(/Third/i,"3rd").replace(/Fourth/i,"4th").replace(/Fifth/i,"5th"):"";
+  const refusal=/refusal/i.test(s)?" Refusal":"";
+  if(/driving\s+while\s+impaired|(^|\W)DWI(\W|$)/i.test(s)) return ("DWI "+(d?d+" Deg":"")+refusal).replace(/\s+/g," ").trim();
+  if(/criminal\s+vehicular\s+homicide/i.test(s)) return "Crim Veh Homicide";
+  if(/criminal\s+vehicular\s+operation/i.test(s)) return "CVO";
+  if(/driving\s+after\s+revocation/i.test(s)) return "DAR";
+  if(/driving\s+after\s+suspension/i.test(s)) return "DAS";
+  if(/driving\s+after\s+cancellation/i.test(s)) return "DAC";
+  if(/underage\s+drink/i.test(s)) return "Underage Drink & Drive";
+  if(/failure\s+to\s+report\s+collision/i.test(s)) return "Fail to Report Collision";
+  if(/failure\s+to\s+drive\s+with\s+due\s+care/i.test(s)) return "Due Care";
+  if(/assault/i.test(s)&&/domestic/i.test(s)) return "Domestic Assault";
+  if(/assault/i.test(s)) return ("Assault"+(d?" "+d+" Deg":"")).trim();
+  if(/theft\s+by\s+swindle/i.test(s)) return "Theft by Swindle";
+  return s.length>34?s.slice(0,32)+"…":s;
+}
+function findCounty(s){
+  for(const c of MN_COUNTIES){if(new RegExp("\\b"+c.replace(".","\\.")+"\\b","i").test(s)) return c;}
+  return "";
+}
+const NAME_RE=/^([A-Z][A-Za-z'’.\-]{1,24}(?:\s(?:Jr|Sr|II|III|IV)\.?)?(?:\s[A-Z][A-Za-z'’.\-]{1,24})?)\s*[,.]\s*([A-Z][A-Za-z'’.\-]{1,24}(?:\s[A-Z][A-Za-z'’.\-]{1,24})?)/;
+const NOT_NAMES=/^(Driving|Failure|Criminal|Assault|Theft|Careless|Reckless|Disorderly|Domestic|Fleeing|Public|Unsafe|Underage|Alcohol|Possession|Harassment|Carry|B\s?Card|DWI|Degree|Refusal|Not\s+Charged|PENDING|CLIENT|CASE|CHARGE|COUNTY|NEXT|FEE|BALANCE|Printed|Gerald|Active|Impaired|Petition|Settlement|Pretrial|Omnibus|Arraignment|Plea|Hearing|First\s+Appearance|Probation|Court|Rule|Implied)/i;
+function parseNames(lines){
+  const out=[]; const seen=new Set();
+  for(let line of lines){
+    line=line.replace(/\s+/g," ").trim();
+    if(!line||NOT_NAMES.test(line)) continue;
+    const nm=line.match(NAME_RE);
+    if(!nm) continue;
+    const last=nm[1].trim(), first=nm[2].trim();
+    if(NOT_NAMES.test(last)||NOT_NAMES.test(first)) continue;
+    const name=(first+" "+last).replace(/\s+/g," ").trim();
+    const k=name.toLowerCase();
+    if(!seen.has(k)){seen.add(k); out.push({name,charge:""});}
+  }
+  return out;
+}
+
+async function parsePdf(file){
+  showProgress(true,"Opening PDF…",5);
+  const buf=await file.arrayBuffer();
+  const pdf=await pdfjsLib.getDocument({data:buf}).promise;
+  let lines=[], hasText=false;
+  for(let p=1;p<=pdf.numPages;p++){
+    showProgress(true,"Reading text — page "+p+"/"+pdf.numPages,5+40*p/pdf.numPages);
+    const page=await pdf.getPage(p);
+    const tc=await page.getTextContent();
+    if(tc.items.length>10) hasText=true;
+    const rows={};
+    tc.items.forEach(it=>{
+      const y=Math.round(it.transform[5]/3)*3;
+      (rows[y]=rows[y]||[]).push({x:it.transform[4],s:it.str});
+    });
+    Object.keys(rows).map(Number).sort((a,b)=>b-a).forEach(y=>{
+      lines.push(rows[y].sort((a,b)=>a.x-b.x).map(i=>i.s).join(" "));
+    });
+  }
+  if(!hasText){
+    showProgress(true,"No text layer found — loading OCR engine…",46);
+    await loadTesseract();
+    const worker=await Tesseract.createWorker("eng");
+    lines=[];
+    for(let p=1;p<=pdf.numPages;p++){
+      showProgress(true,"OCR — page "+p+"/"+pdf.numPages+" (this takes a moment)",46+50*p/pdf.numPages);
+      const page=await pdf.getPage(p);
+      const vp=page.getViewport({scale:2});
+      const canvas=document.createElement("canvas");
+      canvas.width=vp.width; canvas.height=vp.height;
+      await page.render({canvasContext:canvas.getContext("2d"),viewport:vp}).promise;
+      const res=await worker.recognize(canvas);
+      lines.push(...res.data.text.split("\n"));
+    }
+    await worker.terminate();
+  }
+  showProgress(true,"Extracting client names…",97);
+  const found=parseNames(lines);
+  showProgress(false);
+  return found;
+}
+function loadTesseract(){
+  if(window.Tesseract) return Promise.resolve();
+  return new Promise((res,rej)=>{
+    const s=document.createElement("script");
+    s.src="https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/5.0.5/tesseract.min.js";
+    s.onload=res; s.onerror=()=>rej(new Error("OCR library failed to load"));
+    document.head.appendChild(s);
+  });
+}
+function showProgress(on,msg,pct){
+  document.getElementById("impProgress").style.display=on?"block":"none";
+  if(on){document.getElementById("impStatus").textContent=msg;
+    document.getElementById("pfill").style.width=(pct||0)+"%";}
+}
+function showPreview(list){
+  parsed=list;
+  const existing=new Set(state.clients.map(c=>c.name.toLowerCase().trim()));
+  const body=document.getElementById("pvBody");
+  body.innerHTML=list.map((c,i)=>{
+    const dup=existing.has(c.name.toLowerCase().trim());
+    return `<tr style="${dup?"opacity:.45":""}">
+      <td><input type="checkbox" data-pv="${i}" ${dup?"":"checked"}></td>
+      <td><input type="text" data-f="name" data-i="${i}" value="${esc(c.name)}"></td></tr>`;
+  }).join("");
+  const dups=list.filter(c=>existing.has(c.name.toLowerCase().trim())).length;
+  document.getElementById("pvCount").textContent=
+    list.length+" names found"+(dups?" — "+dups+" already on the board (unchecked)":"")+". Names only; add charges on the cards. Uncheck any to skip; edit inline to fix misreads.";
+  document.getElementById("preview").style.display="block";
+  document.getElementById("impConfirm").style.display="inline-block";
+}
+
+/* import modal wiring */
+const impOv=document.getElementById("impOv");
+document.getElementById("pdfBtn").onclick=()=>{resetImport(); impOv.classList.add("open");};
+document.getElementById("impCancel").onclick=()=>impOv.classList.remove("open");
+function resetImport(){
+  parsed=[];
+  document.getElementById("preview").style.display="none";
+  document.getElementById("impConfirm").style.display="none";
+  document.getElementById("pasteBox").value="";
+  showProgress(false);
+}
+document.querySelectorAll(".imp-tab").forEach(t=>t.onclick=()=>{
+  document.querySelectorAll(".imp-tab").forEach(x=>x.classList.remove("on"));
+  t.classList.add("on");
+  document.getElementById("tabPdf").style.display=t.dataset.tab==="pdf"?"block":"none";
+  document.getElementById("tabPaste").style.display=t.dataset.tab==="paste"?"block":"none";
+});
+const drop=document.getElementById("drop");
+drop.onclick=()=>document.getElementById("pdfFile").click();
+drop.ondragover=e=>{e.preventDefault();drop.classList.add("hover");};
+drop.ondragleave=()=>drop.classList.remove("hover");
+drop.ondrop=e=>{e.preventDefault();drop.classList.remove("hover");
+  if(e.dataTransfer.files[0]) handlePdf(e.dataTransfer.files[0]);};
+document.getElementById("pdfFile").onchange=e=>{if(e.target.files[0]) handlePdf(e.target.files[0]); e.target.value="";};
+async function handlePdf(file){
+  try{
+    const list=await parsePdf(file);
+    if(!list.length){showProgress(false); toast("No client rows recognized — try Paste Text"); return;}
+    showPreview(list);
+  }catch(err){showProgress(false); toast("Import failed: "+err.message);}
+}
+document.getElementById("parsePaste").onclick=()=>{
+  const lines=document.getElementById("pasteBox").value.split("\n");
+  const list=[]; const seen=new Set();
+  lines.forEach(l=>{
+    l=l.replace(/\s+/g," ").trim(); if(!l) return;
+    let name=l.split(/\s*[—|–]\s*|\t/)[0].trim();
+    if(name.includes(",")){const p=name.split(",").map(x=>x.trim()); name=(p[1]+" "+p[0]).replace(/\s+/g," ").trim();}
+    const k=name.toLowerCase();
+    if(name&&!seen.has(k)){seen.add(k); list.push({name,charge:""});}
+  });
+  if(!list.length){toast("Nothing to parse"); return;}
+  showPreview(list);
+};
+document.getElementById("pvBody").addEventListener("input",e=>{
+  const f=e.target.dataset.f;
+  if(f) parsed[+e.target.dataset.i][f]=e.target.value;
+});
+document.getElementById("impConfirm").onclick=()=>{
+  const boxes=document.querySelectorAll("#pvBody input[type=checkbox]:checked");
+  let n=0;
+  boxes.forEach(b=>{
+    const c=parsed[+b.dataset.pv];
+    if(!c.name.trim()) return;
+    state.clients.push({id:"c"+Date.now()+"_"+n, name:c.name.trim(), charge:"",
+      county:"", bucket:"cat", evd:false, ofr:false, adv:false, pet:false,
+      sent:false, clsr:false, trialSet:false, offerResult:null, tryCase:null, date:"", notes:""});
+    n++;
+  });
+  impOv.classList.remove("open");
+  toast(n+" clients added to Needs Categorization");
+  render();
+};
+
+/* ── board events ── */
+document.getElementById("board").addEventListener("click",e=>{
+  const or=e.target.closest("[data-or]");
+  if(or){const c=get(or.dataset.id);
+    c.offerResult=c.offerResult===or.dataset.or?null:or.dataset.or; render(); return;}
+  const tc=e.target.closest("[data-tc]");
+  if(tc){const c=get(tc.dataset.id);
+    c.tryCase=c.tryCase===tc.dataset.tc?null:tc.dataset.tc; render(); return;}
+  const ck=e.target.closest(".ck");
+  if(ck){const c=get(ck.dataset.id); const k=ck.dataset.ck; c[k]=!c[k];
+    if(k==="ofr"&&!c.ofr) c.offerResult=null;
+    if(k==="trialSet"&&!c.trialSet) c.tryCase=null;
+    render(); return;}
+  const m=e.target.closest(".c-menu");
+  if(m){openMenu(m.dataset.menu,e); return;}
+  const th=e.target.closest(".col-head");
+  if(th){const k="collapsed_"+th.dataset.toggle; state[k]=!state[k]; render(); return;}
+  const card=e.target.closest(".card");
+  if(card){const c=get(card.dataset.id); if(c&&c.notes){c.showNote=!c.showNote; render();}}
+});
+document.getElementById("board").addEventListener("dragstart",e=>{
+  const card=e.target.closest(".card"); if(!card) return;
+  dragId=card.dataset.id; card.classList.add("dragging");
+});
+document.getElementById("board").addEventListener("dragend",e=>{
+  const card=e.target.closest(".card"); if(card) card.classList.remove("dragging");
+  document.querySelectorAll(".col").forEach(c=>c.classList.remove("drag-over"));
+});
+document.getElementById("board").addEventListener("dragover",e=>{
+  const col=e.target.closest(".col"); if(!col) return;
+  e.preventDefault();
+  document.querySelectorAll(".col").forEach(c=>c.classList.remove("drag-over"));
+  col.classList.add("drag-over");
+});
+document.getElementById("board").addEventListener("drop",e=>{
+  const col=e.target.closest(".col"); if(!col||!dragId) return;
+  e.preventDefault();
+  const c=get(dragId);
+  if(c && c.bucket!==col.dataset.bucket){c.bucket=col.dataset.bucket;
+    toast(c.name+" → "+BUCKETS.find(b=>b.id===c.bucket).name);}
+  dragId=null; render();
+});
+
+function openMenu(id,e){
+  const pop=document.getElementById("pop");
+  const c=get(id);
+  pop.innerHTML=`<div class="head">Move to</div>`+
+    BUCKETS.filter(b=>b.id!==c.bucket).map(b=>`<button data-mv="${b.id}">${b.name}</button>`).join("")+
+    `<div class="sep"></div><button data-edit="1">✎ &nbsp;Edit details</button>`;
+  pop.style.display="block";
+  const r=e.target.getBoundingClientRect();
+  pop.style.left=Math.min(r.left, innerWidth-215)+"px";
+  pop.style.top=Math.min(r.bottom+4, innerHeight-pop.offsetHeight-10)+"px";
+  pop.onclick=ev=>{
+    const mv=ev.target.dataset.mv;
+    if(mv){c.bucket=mv; toast(c.name+" → "+BUCKETS.find(b=>b.id===mv).name); render();}
+    if(ev.target.dataset.edit) openModal(id);
+    pop.style.display="none";
+  };
+}
+document.addEventListener("click",e=>{
+  if(!e.target.closest("#pop")&&!e.target.closest(".c-menu"))
+    document.getElementById("pop").style.display="none";
+});
+
+/* edit modal */
+function openModal(id){
+  editId=id;
+  const sel=document.getElementById("mBucket");
+  sel.innerHTML=BUCKETS.map(b=>`<option value="${b.id}">${b.name}</option>`).join("");
+  const c=id?get(id):null;
+  document.getElementById("mTitle").textContent=c?"Edit Client":"New Client";
+  document.getElementById("mName").value=c?c.name:"";
+  document.getElementById("mCharge").value=c?c.charge:"";
+  document.getElementById("mCounty").value=c?c.county:"";
+  document.getElementById("mDate").value=c?c.date:"";
+  document.getElementById("mNotes").value=c?c.notes:"";
+  sel.value=c?c.bucket:"cat";
+  document.getElementById("mDel").style.display=c?"block":"none";
+  document.getElementById("ov").classList.add("open");
+}
+document.getElementById("addBtn").onclick=()=>openModal(null);
+document.getElementById("mCancel").onclick=()=>document.getElementById("ov").classList.remove("open");
+document.getElementById("mSave").onclick=()=>{
+  const name=document.getElementById("mName").value.trim();
+  if(!name){toast("Name required"); return;}
+  const data={name,charge:document.getElementById("mCharge").value.trim(),
+    county:document.getElementById("mCounty").value.trim(),
+    date:document.getElementById("mDate").value,
+    notes:document.getElementById("mNotes").value.trim(),
+    bucket:document.getElementById("mBucket").value};
+  if(editId){Object.assign(get(editId),data);}
+  else{state.clients.push(Object.assign({id:"c"+Date.now(),evd:false,ofr:false,adv:false,pet:false,
+    sent:false,clsr:false,trialSet:false,offerResult:null,tryCase:null,date:"",notes:""},data));}
+  document.getElementById("ov").classList.remove("open");
+  toast("Saved"); render();
+};
+document.getElementById("mDel").onclick=()=>{
+  const c=get(editId);
+  if(confirm("Delete "+c.name+"? This cannot be undone.")){
+    state.clients=state.clients.filter(x=>x.id!==editId);
+    document.getElementById("ov").classList.remove("open");
+    toast("Deleted"); render();
+  }
+};
+
+/* filters */
+document.getElementById("q").oninput=e=>{filters.q=e.target.value; render();};
+document.getElementById("fCounty").onchange=e=>{filters.county=e.target.value; render();};
+document.getElementById("fEvd").onclick=e=>{filters.noEvd=!filters.noEvd; e.target.classList.toggle("on"); render();};
+document.getElementById("fOfr").onclick=e=>{filters.noOfr=!filters.noOfr; e.target.classList.toggle("on"); render();};
+
+/* backup */
+document.getElementById("expBtn").onclick=()=>{
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(new Blob([JSON.stringify(state,null,2)],{type:"application/json"}));
+  a.download="resolution-tracker-backup-"+new Date().toISOString().slice(0,10)+".json";
+  a.click(); toast("Backup exported");
+};
+document.getElementById("impBtn").onclick=()=>document.getElementById("impFile").click();
+document.getElementById("impFile").onchange=e=>{
+  const f=e.target.files[0]; if(!f) return;
+  const r=new FileReader();
+  r.onload=()=>{try{const s=JSON.parse(r.result);
+    if(s&&s.clients){state=s; render(); toast("Backup restored");}
+    else toast("Invalid file");}catch(err){toast("Invalid file");}};
+  r.readAsText(f); e.target.value="";
+};
+
+document.getElementById("clrBtn").onclick=()=>{
+  if(!state.clients.length){toast("Board is already empty"); return;}
+  if(confirm("Clear ALL "+state.clients.length+" clients from the board? Consider Export first — this cannot be undone.")){
+    state.clients=[]; render(); toast("Board cleared");
+  }
+};
+
+render();
+</script>
+</body>
+</html>
