@@ -247,6 +247,7 @@ h1 span{color:var(--steel);font-size:12px;letter-spacing:4px;display:block;text-
           </div>
           <div class="set-sec">
             <div class="set-h">Cloud Sync</div>
+            <button class="set-item" id="pullBtn">⇩&nbsp; Pull latest from cloud</button>
             <button class="set-item" id="syncBtn">☁&nbsp; Sync settings…</button>
           </div>
         </div>
@@ -888,6 +889,7 @@ document.getElementById("sSave").onclick=()=>{
 };
 document.getElementById("sPull").onclick=()=>{if(!syncCfg){toast("Connect first"); return;} cloudLoad(true);};
 document.getElementById("sPush").onclick=()=>{if(!syncCfg){toast("Connect first"); return;} cloudSave(true);};
+document.getElementById("pullBtn").onclick=()=>{if(!syncCfg){toast("Connect first"); return;} cloudLoad(true);};
 document.getElementById("sOff").onclick=()=>{
   syncCfg=null; localStorage.removeItem(SYNC_CFG_KEY);
   setDot(""); document.getElementById("syncOv").classList.remove("open");
@@ -896,6 +898,7 @@ document.getElementById("sOff").onclick=()=>{
 
 render();
 if(syncCfg) cloudLoad(false);
+setInterval(()=>{ if(syncCfg) cloudSave(false); }, 60000);
 </script>
 </body>
 </html>
