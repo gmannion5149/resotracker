@@ -93,6 +93,21 @@ h1 span{color:var(--steel);font-size:12px;letter-spacing:4px;display:block;text-
 #setPanel select{width:100%;margin-top:6px}
 #syncDot{flex:0 0 auto}
 
+/* ── Tabs ── */
+#tabs{display:flex;gap:8px;padding:14px 20px 0}
+.tab{position:relative;padding:9px 20px;border-radius:10px 10px 0 0;font-size:14px;letter-spacing:1.6px;
+  color:var(--steel);font-variant:small-caps;border:1px solid transparent;border-bottom:none;cursor:pointer;
+  background:linear-gradient(180deg,#1a2536,#141d2c);transition:.15s}
+.tab:hover{color:var(--gold)}
+.tab.on{color:var(--gold);border-color:var(--gold-dim);
+  box-shadow:0 -2px 12px rgba(212,175,55,.15);text-shadow:0 0 8px rgba(212,175,55,.4)}
+.tab .tcount{margin-left:7px;background:var(--navy);border:1px solid var(--gold-dim);color:var(--led);
+  border-radius:12px;padding:1px 8px;font-size:11px;text-shadow:0 0 6px rgba(255,217,104,.5)}
+#resolvedView{display:none;padding:16px 20px 60px}
+.resolved-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px;align-items:start}
+.resolved-empty{color:#4a5870;font-style:italic;text-align:center;padding:60px 20px;font-size:14px}
+.resolved-bar{color:var(--steel);font-size:12.5px;font-style:italic;margin-bottom:14px;letter-spacing:.3px}
+
 /* ── Board ── */
 #board{display:flex;gap:14px;padding:18px 20px 60px;overflow-x:auto;align-items:flex-start}
 .col{background:linear-gradient(180deg,#1E2A3A,#182335);border:1px solid #2e3d56;border-radius:14px;
@@ -146,6 +161,11 @@ h1 span{color:var(--steel);font-size:12px;letter-spacing:4px;display:block;text-
   box-shadow:0 0 9px rgba(76,175,125,.3),inset 0 0 8px rgba(76,175,125,.14)}
 .sub.dec.on{border-color:var(--red);color:#ff9d9d;text-shadow:0 0 6px rgba(225,90,90,.7);
   box-shadow:0 0 9px rgba(225,90,90,.3),inset 0 0 8px rgba(225,90,90,.14)}
+.sub.con.on,.sub.may.on{border-color:var(--amber);color:#f0c877;text-shadow:0 0 6px rgba(232,163,61,.6);
+  box-shadow:0 0 9px rgba(232,163,61,.28),inset 0 0 8px rgba(232,163,61,.12)}
+.subrow.tri .sub{font-size:9px;letter-spacing:.2px;padding:5px 2px}
+.ck.res.on{border-color:var(--green);color:#8fe6b4;text-shadow:0 0 6px rgba(76,175,125,.6);
+  box-shadow:inset 0 0 10px rgba(76,175,125,.16),0 0 9px rgba(76,175,125,.28)}
 .sub-label{font-size:10px;color:#6d7c94;letter-spacing:1px;padding:0 2px;font-style:italic}
 .sync-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:7px;background:#4a5870;vertical-align:1px}
 .sync-dot.ok{background:var(--green);box-shadow:0 0 7px var(--green),0 0 14px rgba(76,175,125,.5)}
@@ -260,7 +280,12 @@ h1 span{color:var(--steel);font-size:12px;letter-spacing:4px;display:block;text-
   <div class="led-strip"></div>
 </header>
 
+<div id="tabs">
+  <button class="tab on" data-view="board">Active Board</button>
+  <button class="tab" data-view="resolved">Resolved<span class="tcount" id="resolvedCount">0</span></button>
+</div>
 <div id="board"></div>
+<div id="resolvedView"></div>
 
 <!-- edit/add client -->
 <div class="overlay" id="ov">
@@ -340,16 +365,27 @@ if(window.pdfjsLib){
   pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
 }
 const BUCKETS=[
- {id:"cat", name:"Needs Categorization", desc:"New imports land here — sort them out"},
- {id:"soon", name:"Resolving Soon", desc:"Offer in hand or terms agreed; closing imminently"},
- {id:"likely", name:"Likely to Resolve", desc:"On track; negotiation active"},
- {id:"work", name:"Needs Work", desc:"Gaps to close before resolution is realistic"},
- {id:"unlikely", name:"Not Likely", desc:"No viable path yet; stalled or contested"},
+ {id:"expunge", name:"Expungements", desc:"Expungement matters"},
+ {id:"pending", name:"Pending", desc:"Awaiting evidence; new cases land here"},
+ {id:"resolving", name:"Resolving", desc:"Actively resolving"},
+ {id:"near", name:"Near Resolution", desc:"Offer in hand or terms agreed; closing soon"},
+ {id:"negotiation", name:"Negotiation", desc:"In negotiation with the State"},
  {id:"trial", name:"Trial Track", desc:"Set for trial or headed there"}
 ];
+const VALID_BUCKETS=new Set(BUCKETS.map(b=>b.id));
+const BUCKET_MIGRATE={cat:"pending",soon:"near",likely:"negotiation",work:"pending",unlikely:"pending",trial:"trial"};
+function migrate(st){
+  if(st&&Array.isArray(st.clients)) st.clients.forEach(c=>{
+    if(c.resolved===undefined) c.resolved=false;
+    if(BUCKET_MIGRATE[c.bucket]) c.bucket=BUCKET_MIGRATE[c.bucket];
+    if(!VALID_BUCKETS.has(c.bucket)) c.bucket="pending";
+  });
+  return st;
+}
 const MN_COUNTIES=["Aitkin","Anoka","Becker","Beltrami","Benton","Big Stone","Blue Earth","Brown","Carlton","Carver","Cass","Chippewa","Chisago","Clay","Clearwater","Cook","Cottonwood","Crow Wing","Dakota","Dodge","Douglas","Faribault","Fillmore","Freeborn","Goodhue","Grant","Hennepin","Houston","Hubbard","Isanti","Itasca","Jackson","Kanabec","Kandiyohi","Kittson","Koochiching","Lac qui Parle","Lake of the Woods","Lake","Le Sueur","Lincoln","Lyon","Mahnomen","Marshall","Martin","McLeod","Meeker","Mille Lacs","Morrison","Mower","Murray","Nicollet","Nobles","Norman","Olmsted","Otter Tail","Pennington","Pine","Pipestone","Polk","Pope","Ramsey","Red Lake","Redwood","Renville","Rice","Rock","Roseau","Scott","Sherburne","Sibley","St. Louis","Stearns","Steele","Stevens","Swift","Todd","Traverse","Wabasha","Wadena","Waseca","Washington","Watonwan","Wilkin","Winona","Wright","Yellow Medicine"];
 const KEY="resolutionTrackerV2";
-let state=load();
+let state=migrate(load());
+let currentView="board";
 let filters={q:"",county:"",noEvd:false,noOfr:false};
 let editId=null, dragId=null, parsed=[];
 
@@ -391,7 +427,7 @@ async function cloudLoad(manual){
     if(!r.ok) throw new Error("HTTP "+r.status);
     const remote=await r.json();
     if(remote&&remote.clients&&(manual||(remote.updatedAt||0)>(state.updatedAt||0))){
-      state=remote;
+      state=migrate(remote);
       localStorage.setItem(KEY,JSON.stringify(state));
       lastPushedSig=JSON.stringify(state.clients);
       render();
@@ -402,18 +438,21 @@ async function cloudLoad(manual){
 }
 
 function statusOf(c){
+  if(c.resolved) return {t:"Resolved",col:"var(--green)"};
   if(c.trialSet){
     if(c.tryCase==="yes") return {t:"Trying Case",col:"var(--red)"};
+    if(c.tryCase==="maybe") return {t:"Trial — Maybe",col:"var(--amber)"};
     if(c.tryCase==="no") return {t:"Trial Set — Resolving",col:"var(--amber)"};
     return {t:"Trial Set",col:"var(--red)"};
   }
   if(c.bucket==="trial") return {t:"Trial Prep",col:"var(--red)"};
   const all4=c.evd&&c.ofr&&c.adv&&c.pet;
-  if(all4&&c.sent&&c.clsr) return {t:"Ready to Close",col:"var(--green)"};
+  if(all4&&c.sent&&c.clsr) return {t:"Resolved",col:"var(--green)"};
   if(all4&&c.sent) return {t:"Send Closing Letter",col:"var(--violet)"};
   if(all4) return {t:"Awaiting Sentencing",col:"var(--amber)"};
   if(c.pet) return {t:"Petition Drafted",col:"var(--violet)"};
   if(c.ofr&&c.offerResult==="dec") return {t:"Offer Declined",col:"var(--red)"};
+  if(c.ofr&&c.offerResult==="con") return {t:"Offer — Considering",col:"var(--amber)"};
   if(c.ofr&&c.offerResult==="acc") return {t:"Offer Accepted",col:"var(--green)"};
   if(c.ofr) return {t:"Offer In",col:"var(--gold)"};
   if(c.evd) return {t:"Awaiting Offer",col:"var(--amber)"};
@@ -438,7 +477,20 @@ function dimmed(c){
 }
 
 function render(){
+  updateTabs();
+  if(currentView==="resolved") renderResolved(); else renderBoard();
+  renderStats();
+  save();
+}
+function updateTabs(){
+  const r=state.clients.filter(c=>c.resolved).length;
+  const rc=document.getElementById("resolvedCount"); if(rc) rc.textContent=r;
+  document.querySelectorAll(".tab").forEach(t=>t.classList.toggle("on",t.dataset.view===currentView));
+}
+function renderBoard(){
   const board=document.getElementById("board");
+  const rv=document.getElementById("resolvedView");
+  board.style.display="flex"; rv.style.display="none";
   const sy=window.scrollY, sx=window.scrollX, bl=board.scrollLeft;
   const colScroll={};
   document.querySelectorAll(".col").forEach(c=>{
@@ -448,7 +500,7 @@ function render(){
   board.innerHTML="";
   const byBucket={};
   BUCKETS.forEach(b=>byBucket[b.id]=[]);
-  state.clients.forEach(c=>{(byBucket[c.bucket]||byBucket.cat).push(c);});
+  state.clients.forEach(c=>{ if(c.resolved) return; (byBucket[c.bucket]||byBucket.pending).push(c); });
   Object.values(byBucket).forEach(arr=>arr.sort((a,b)=>{
     if(a.date&&b.date) return a.date<b.date?-1:a.date>b.date?1:0;
     if(a.date) return -1; if(b.date) return 1; return 0;
@@ -472,8 +524,21 @@ function render(){
   });
   board.scrollLeft=bl;
   window.scrollTo(sx,sy);
-  renderStats();
-  save();
+}
+function renderResolved(){
+  const board=document.getElementById("board");
+  const rv=document.getElementById("resolvedView");
+  board.style.display="none"; rv.style.display="block";
+  const total=state.clients.filter(c=>c.resolved).length;
+  if(!total){
+    rv.innerHTML=`<div class="resolved-empty">No resolved cases yet. Check &ldquo;Resolved&rdquo; on a card and it lands here.</div>`;
+    return;
+  }
+  const items=state.clients.filter(c=>c.resolved).filter(visible)
+    .sort((a,b)=>a.name.localeCompare(b.name));
+  rv.innerHTML=`<div class="resolved-bar">${items.length} resolved case${items.length===1?"":"s"}. Uncheck &ldquo;Resolved&rdquo; on any card to send it back to the board.</div><div class="resolved-grid"></div>`;
+  const grid=rv.querySelector(".resolved-grid");
+  items.forEach(c=>grid.appendChild(cardEl(c)));
 }
 
 function cardEl(c){
@@ -501,13 +566,17 @@ function cardEl(c){
       <div class="ck${c.adv?" on":""}" data-ck="adv" data-id="${c.id}">ADVISED</div>
       <div class="ck${c.pet?" on":""}" data-ck="pet" data-id="${c.id}">PETITION</div>
     </div>
-    ${c.ofr?`<div class="subrow">
-      <div class="sub acc${c.offerResult==="acc"?" on":""}" data-or="acc" data-id="${c.id}">✓ ACCEPTED</div>
-      <div class="sub dec${c.offerResult==="dec"?" on":""}" data-or="dec" data-id="${c.id}">✗ DECLINED</div>
+    ${c.ofr?`<div class="subrow tri">
+      <div class="sub acc${c.offerResult==="acc"?" on":""}" data-or="acc" data-id="${c.id}">ACCEPTED</div>
+      <div class="sub con${c.offerResult==="con"?" on":""}" data-or="con" data-id="${c.id}">CONSIDERING</div>
+      <div class="sub dec${c.offerResult==="dec"?" on":""}" data-or="dec" data-id="${c.id}">DECLINED</div>
     </div>`:""}
     ${(c.evd&&c.ofr&&c.adv&&c.pet)?`<div class="checks" style="margin-top:6px">
       <div class="ck${c.sent?" on":""}" data-ck="sent" data-id="${c.id}">SENTENCED</div>
       <div class="ck${c.clsr?" on":""}" data-ck="clsr" data-id="${c.id}">CLOSING LTR</div>
+    </div>`:""}
+    ${(c.evd&&c.ofr&&c.adv&&c.pet&&c.clsr)?`<div class="checks" style="margin-top:6px;grid-template-columns:1fr">
+      <div class="ck res${c.resolved?" on":""}" data-ck="resolved" data-id="${c.id}">✔ RESOLVED — FILE AWAY</div>
     </div>`:""}
     <div class="checks" style="margin-top:6px;grid-template-columns:1fr">
       <div class="ck${c.trialSet?" on":""}" data-ck="trialSet" data-id="${c.id}">TRIAL SET</div>
@@ -515,6 +584,7 @@ function cardEl(c){
     ${c.trialSet?`<div class="subrow">
       <span class="sub-label">Trying it?</span>
       <div class="sub acc${c.tryCase==="yes"?" on":""}" data-tc="yes" data-id="${c.id}">YES</div>
+      <div class="sub may${c.tryCase==="maybe"?" on":""}" data-tc="maybe" data-id="${c.id}">MAYBE</div>
       <div class="sub dec${c.tryCase==="no"?" on":""}" data-tc="no" data-id="${c.id}">NO</div>
     </div>`:""}
     ${c.notes?`<div class="note-view">${esc(c.notes)}</div>`:""}`;
@@ -523,17 +593,18 @@ function cardEl(c){
 
 function renderStats(){
   const cs=state.clients;
-  const n=cs.length, evd=cs.filter(c=>c.evd).length, ofr=cs.filter(c=>c.ofr).length;
-  const pet=cs.filter(c=>c.pet).length;
-  const ready=cs.filter(c=>c.evd&&c.ofr&&c.adv&&c.pet&&c.sent&&c.clsr).length;
-  const trial=cs.filter(c=>c.bucket==="trial").length;
+  const active=cs.filter(c=>!c.resolved);
+  const n=active.length, evd=active.filter(c=>c.evd).length, ofr=active.filter(c=>c.ofr).length;
+  const pet=active.filter(c=>c.pet).length;
+  const trial=active.filter(c=>c.bucket==="trial").length;
+  const resolved=cs.filter(c=>c.resolved).length;
   document.getElementById("stats").innerHTML=
-    `<div class="stat"><b>${n}</b><small>Clients</small></div>
+    `<div class="stat"><b>${n}</b><small>Active</small></div>
      <div class="stat"><b>${evd}</b><small>Evidence</small></div>
      <div class="stat"><b>${ofr}</b><small>Offers</small></div>
      <div class="stat"><b>${pet}</b><small>Petitions</small></div>
-     <div class="stat"><b>${ready}</b><small>Ready</small></div>
-     <div class="stat"><b>${trial}</b><small>Trial</small></div>`;
+     <div class="stat"><b>${trial}</b><small>Trial</small></div>
+     <div class="stat"><b>${resolved}</b><small>Resolved</small></div>`;
   const sel=document.getElementById("fCounty");
   const cur=sel.value;
   const counties=[...new Set(cs.map(c=>c.county).filter(Boolean))].sort();
@@ -717,8 +788,8 @@ document.getElementById("impConfirm").onclick=()=>{
     const c=parsed[+b.dataset.pv];
     if(!c.name.trim()) return;
     state.clients.push({id:"c"+Date.now()+"_"+n, name:c.name.trim(), charge:"",
-      county:"", bucket:"cat", evd:false, ofr:false, adv:false, pet:false,
-      sent:false, clsr:false, trialSet:false, offerResult:null, tryCase:null, date:"", notes:""});
+      county:"", bucket:"pending", evd:false, ofr:false, adv:false, pet:false,
+      sent:false, clsr:false, resolved:false, trialSet:false, offerResult:null, tryCase:null, date:"", notes:""});
     n++;
   });
   impOv.classList.remove("open");
@@ -727,7 +798,7 @@ document.getElementById("impConfirm").onclick=()=>{
 };
 
 /* ── board events ── */
-document.getElementById("board").addEventListener("click",e=>{
+function boardClick(e){
   const add=e.target.closest("[data-add]");
   if(add){openModal(add.dataset.add); return;}
   const or=e.target.closest("[data-or]");
@@ -740,14 +811,17 @@ document.getElementById("board").addEventListener("click",e=>{
   if(ck){const c=get(ck.dataset.id); const k=ck.dataset.ck; c[k]=!c[k];
     if(k==="ofr"&&!c.ofr) c.offerResult=null;
     if(k==="trialSet"&&!c.trialSet) c.tryCase=null;
+    if(k==="resolved") toast(c.resolved?c.name+" filed under Resolved":c.name+" reopened");
     render(); return;}
   const m=e.target.closest(".c-menu");
   if(m){openMenu(m.dataset.menu,e); return;}
   const th=e.target.closest(".col-head");
-  if(th){const k="collapsed_"+th.dataset.toggle; state[k]=!state[k]; render(); return;}
+  if(th){const key="collapsed_"+th.dataset.toggle; state[key]=!state[key]; render(); return;}
   const card=e.target.closest(".card");
   if(card){const c=get(card.dataset.id); if(c&&c.notes){c.showNote=!c.showNote; render();}}
-});
+}
+document.getElementById("board").addEventListener("click",boardClick);
+document.getElementById("resolvedView").addEventListener("click",boardClick);
 document.getElementById("board").addEventListener("dragstart",e=>{
   const card=e.target.closest(".card"); if(!card) return;
   dragId=card.dataset.id; card.classList.add("dragging");
@@ -783,7 +857,7 @@ function openMenu(id,e){
   pop.style.top=Math.min(r.bottom+4, innerHeight-pop.offsetHeight-10)+"px";
   pop.onclick=ev=>{
     const mv=ev.target.dataset.mv;
-    if(mv){c.bucket=mv; toast(c.name+" → "+BUCKETS.find(b=>b.id===mv).name); render();}
+    if(mv){c.bucket=mv; c.resolved=false; toast(c.name+" → "+BUCKETS.find(b=>b.id===mv).name); render();}
     if(ev.target.dataset.edit) openModal(id);
     pop.style.display="none";
   };
@@ -805,7 +879,7 @@ function openModal(id){
   document.getElementById("mCounty").value=c?c.county:"";
   document.getElementById("mDate").value=c?c.date:"";
   document.getElementById("mNotes").value=c?c.notes:"";
-  sel.value=c?c.bucket:"cat";
+  sel.value=c?c.bucket:"pending";
   document.getElementById("mDel").style.display=c?"block":"none";
   document.getElementById("ov").classList.add("open");
 }
@@ -821,7 +895,7 @@ document.getElementById("mSave").onclick=()=>{
     bucket:document.getElementById("mBucket").value};
   if(editId){Object.assign(get(editId),data);}
   else{state.clients.push(Object.assign({id:"c"+Date.now(),evd:false,ofr:false,adv:false,pet:false,
-    sent:false,clsr:false,trialSet:false,offerResult:null,tryCase:null,date:"",notes:""},data));}
+    sent:false,clsr:false,resolved:false,trialSet:false,offerResult:null,tryCase:null,date:"",notes:""},data));}
   document.getElementById("ov").classList.remove("open");
   toast("Saved"); render();
 };
@@ -839,6 +913,9 @@ document.getElementById("q").oninput=e=>{filters.q=e.target.value; render();};
 document.getElementById("fCounty").onchange=e=>{filters.county=e.target.value; render();};
 document.getElementById("fEvd").onchange=e=>{filters.noEvd=e.target.checked; render();};
 document.getElementById("fOfr").onchange=e=>{filters.noOfr=e.target.checked; render();};
+
+/* tabs */
+document.querySelectorAll(".tab").forEach(t=>t.onclick=()=>{currentView=t.dataset.view; render();});
 
 /* settings dropdown */
 const setPanel=document.getElementById("setPanel");
